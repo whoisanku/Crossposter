@@ -264,7 +264,7 @@ export default function ComposeScreen({ navigation }: Props) {
     useEffect(() => {
         const overLimit = text.length >= 300;
         const reason = media?.type === 'video'
-            ? 'Video not supported on Bluesky'
+            ? 'BlueskyVideo not supported'
             : overLimit
                 ? 'Limit >= 300'
                 : null;
@@ -648,7 +648,7 @@ export default function ComposeScreen({ navigation }: Props) {
                     </View>
                     <View className="flex-row items-center">
                         <Text className={`mr-2 text-sm ${isBlueskyActive ? 'text-blue-400' : 'text-gray-500'}`}>
-                            {blueskyDisabledReason ? `BSKY (${blueskyDisabledReason})` : 'Post on Bluesky'}
+                            {blueskyDisabledReason ? `Post on Bluesky` : 'Post on Bluesky'}
                         </Text>
                         <Switch
                             testID="bluesky-toggle"
