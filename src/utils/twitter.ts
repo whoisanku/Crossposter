@@ -1,11 +1,17 @@
 import OAuth from 'oauth-1.0a';
 import HmacSHA1 from 'crypto-js/hmac-sha1';
 import Base64 from 'crypto-js/enc-base64';
-import axios from 'axios';
-import * as FileSystem from 'expo-file-system';
+import axios, { AxiosRequestHeaders } from 'axios';
+import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 export class TwitterService {
-    constructor(consumerKey, consumerSecret, accessToken, accessTokenSecret) {
+    private consumerKey: string;
+    private consumerSecret: string;
+    private accessToken: string;
+    private accessTokenSecret: string;
+    private oauth: OAuth;
+
+    constructor(consumerKey: string, consumerSecret: string, accessToken: string, accessTokenSecret: string) {
         this.consumerKey = consumerKey;
         this.consumerSecret = consumerSecret;
         this.accessToken = accessToken;
@@ -20,7 +26,7 @@ export class TwitterService {
         });
     }
 
-    getAuthHeader(request) {
+    private getAuthHeader(request: OAuth.RequestOptions): OAuth.Header {
         const token = {
             key: this.accessToken,
             secret: this.accessTokenSecret,
@@ -28,24 +34,25 @@ export class TwitterService {
         return this.oauth.toHeader(this.oauth.authorize(request, token));
     }
 
-    async uploadMedia(uri) {
+    async uploadMedia(uri: string, mimeType?: string) {
         try {
             console.log('Reading file info...');
-            const fileInfo = await FileSystem.getInfoAsync(uri);
+            const fileInfo = await getInfoAsync(uri);
             if (!fileInfo.exists) {
                 throw new Error('File does not exist');
             }
 
             const totalBytes = fileInfo.size;
-            // Determine media type (very basic)
-            const isVideo = uri.endsWith('.mp4') || uri.endsWith('.mov');
-            const mediaType = isVideo ? 'video/mp4' : 'image/jpeg'; // fallback/default
+            // Determine media type
+            const isVideo = mimeType ? mimeType.startsWith('video/') : (uri.endsWith('.mp4') || uri.endsWith('.mov'));
+            const mediaType = mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
 
             console.log(`Starting upload for ${mediaType}, size: ${totalBytes}`);
 
             // INIT
             const initUrl = 'https://upload.twitter.com/1.1/media/upload.json';
-            const initData = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const initData: any = {
                 command: 'INIT',
                 total_bytes: totalBytes,
                 media_type: mediaType,
@@ -65,7 +72,7 @@ export class TwitterService {
             
             const initResponse = await axios.post(initUrl, new URLSearchParams(initData), {
                 headers: {
-                    ...initHeaders,
+                    ...(initHeaders as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }
             });
@@ -75,7 +82,7 @@ export class TwitterService {
 
             // APPEND
             // Read file as base64.
-            const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+            const fileContent = await readAsStringAsync(uri, { encoding: 'base64' });
             
             const appendUrl = 'https://upload.twitter.com/1.1/media/upload.json';
             const appendData = {
@@ -93,9 +100,9 @@ export class TwitterService {
             
             const appendHeaders = this.getAuthHeader(appendReq);
             
-            await axios.post(appendUrl, new URLSearchParams(appendData), {
+            await axios.post(appendUrl, new URLSearchParams(appendData as any), {
                 headers: {
-                    ...appendHeaders,
+                    ...(appendHeaders as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 maxBodyLength: Infinity,
@@ -121,7 +128,7 @@ export class TwitterService {
             
             const finalizeResponse = await axios.post(finalizeUrl, new URLSearchParams(finalizeData), {
                 headers: {
-                    ...finalizeHeaders,
+                    ...(finalizeHeaders as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/x-www-form-urlencoded'
                 }
             });
@@ -134,13 +141,13 @@ export class TwitterService {
 
             return mediaId;
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Upload Media Error:', error.response ? error.response.data : error.message);
             throw error;
         }
     }
 
-    async checkStatus(mediaId) {
+    async checkStatus(mediaId: string) {
         let processingInfo = null;
         do {
             const statusUrl = `https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaId}`;
@@ -151,7 +158,7 @@ export class TwitterService {
             
             const headers = this.getAuthHeader(request);
             
-            const response = await axios.get(statusUrl, { headers });
+            const response = await axios.get(statusUrl, { headers: headers as unknown as AxiosRequestHeaders });
             processingInfo = response.data.processing_info;
             
             console.log('Processing status:', processingInfo.state);
@@ -170,10 +177,11 @@ export class TwitterService {
         }
     }
 
-    async postTweet(text, mediaIds = []) {
+    async postTweet(text: string, mediaIds: string[] = []) {
         try {
             const url = 'https://api.twitter.com/2/tweets';
-            const data = {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const data: any = {
                 text: text
             };
             
@@ -191,14 +199,14 @@ export class TwitterService {
             
             const response = await axios.post(url, data, {
                 headers: {
-                    ...headers,
+                    ...(headers as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/json'
                 }
             });
             
             return response.data;
             
-        } catch (error) {
+        } catch (error: any) {
             console.error('Post Tweet Error:', error.response ? error.response.data : error.message);
             throw error;
         }

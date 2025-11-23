@@ -2,11 +2,18 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import "./global.css";
 
 import ComposeScreen from './src/screens/ComposeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
-const Stack = createNativeStackNavigator();
+// Define the parameter list for the stack
+type RootStackParamList = {
+    Compose: undefined;
+    Settings: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
