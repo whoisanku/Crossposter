@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-export default function SettingsScreen({ navigation }) {
+type RootStackParamList = {
+    Compose: undefined;
+    Settings: undefined;
+};
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
+
+export default function SettingsScreen({ navigation }: Props) {
     const [apiKey, setApiKey] = useState('');
     const [apiSecret, setApiSecret] = useState('');
     const [accessToken, setAccessToken] = useState('');
@@ -31,7 +39,7 @@ export default function SettingsScreen({ navigation }) {
 
     const saveCredentials = async () => {
         try {
-            const data = [
+            const data: [string, string][] = [
                 ['apiKey', apiKey],
                 ['apiSecret', apiSecret],
                 ['accessToken', accessToken],
@@ -46,14 +54,14 @@ export default function SettingsScreen({ navigation }) {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <Text style={styles.title}>API Settings</Text>
+        <SafeAreaView className="flex-1 bg-black">
+            <ScrollView contentContainerClassName="p-5">
+                <Text className="text-2xl font-bold text-white mb-8">API Settings</Text>
                 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>API Key</Text>
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">API Key</Text>
                     <TextInput 
-                        style={styles.input} 
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
                         value={apiKey} 
                         onChangeText={setApiKey} 
                         placeholder="Enter API Key"
@@ -61,10 +69,10 @@ export default function SettingsScreen({ navigation }) {
                     />
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>API Key Secret</Text>
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">API Key Secret</Text>
                     <TextInput 
-                        style={styles.input} 
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
                         value={apiSecret} 
                         onChangeText={setApiSecret} 
                         placeholder="Enter API Secret"
@@ -73,10 +81,10 @@ export default function SettingsScreen({ navigation }) {
                     />
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Access Token</Text>
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">Access Token</Text>
                     <TextInput 
-                        style={styles.input} 
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
                         value={accessToken} 
                         onChangeText={setAccessToken} 
                         placeholder="Enter Access Token"
@@ -84,10 +92,10 @@ export default function SettingsScreen({ navigation }) {
                     />
                 </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Access Token Secret</Text>
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">Access Token Secret</Text>
                     <TextInput 
-                        style={styles.input} 
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
                         value={accessSecret} 
                         onChangeText={setAccessSecret} 
                         placeholder="Enter Access Secret"
@@ -96,55 +104,10 @@ export default function SettingsScreen({ navigation }) {
                     />
                 </View>
 
-                <TouchableOpacity style={styles.saveButton} onPress={saveCredentials}>
-                    <Text style={styles.saveButtonText}>Save Credentials</Text>
+                <TouchableOpacity className="bg-[#1d9bf0] p-4 rounded-full items-center mt-5" onPress={saveCredentials}>
+                    <Text className="text-white font-bold text-base">Save Credentials</Text>
                 </TouchableOpacity>
             </ScrollView>
         </SafeAreaView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#000000',
-    },
-    scrollContent: {
-        padding: 20,
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#ffffff',
-        marginBottom: 30,
-    },
-    inputGroup: {
-        marginBottom: 20,
-    },
-    label: {
-        color: '#8899a6',
-        marginBottom: 8,
-        fontSize: 14,
-    },
-    input: {
-        backgroundColor: '#192734',
-        color: '#ffffff',
-        padding: 15,
-        borderRadius: 8,
-        fontSize: 16,
-        borderWidth: 1,
-        borderColor: '#253341',
-    },
-    saveButton: {
-        backgroundColor: '#1d9bf0',
-        padding: 15,
-        borderRadius: 25,
-        alignItems: 'center',
-        marginTop: 20,
-    },
-    saveButtonText: {
-        color: '#ffffff',
-        fontWeight: 'bold',
-        fontSize: 16,
-    }
-});
