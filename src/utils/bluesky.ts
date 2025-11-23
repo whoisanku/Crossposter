@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { readAsStringAsync } from 'expo-file-system';
 
 interface BlueskySession {
     did: string;
@@ -103,18 +102,6 @@ export class BlueskyService {
                         }
                     ]
                 };
-            } else if (mimeType?.startsWith('video')) {
-                 // Video support via standard uploadBlob (limited) or external video service.
-                 // The simple video embed looks like this, but usually requires the blob to be processed by video service?
-                 // Wait, standard `app.bsky.embed.video` requires the blob to be uploaded to video service usually?
-                 // Or just `uploadBlob` to PDS and reference it?
-                 // Docs say "The easiest way to upload a video is to upload it as you would an image - use uploadBlob... However... downside"
-                 // So we can use `uploadBlob` result here.
-                 record.embed = {
-                     $type: 'app.bsky.embed.video',
-                     video: blob,
-                     // Aspect ratio is optional but recommended. We might not have it easily without extra libs.
-                 };
             }
         }
 
