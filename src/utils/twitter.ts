@@ -2,7 +2,8 @@ import OAuth from 'oauth-1.0a';
 import HmacSHA1 from 'crypto-js/hmac-sha1';
 import Base64 from 'crypto-js/enc-base64';
 import axios, { AxiosRequestHeaders } from 'axios';
-import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
+import { File as ExpoFile } from 'expo-file-system';
 
 export class TwitterService {
     private consumerKey: string;
@@ -34,15 +35,23 @@ export class TwitterService {
         return this.oauth.toHeader(this.oauth.authorize(request, token));
     }
 
-    async uploadMedia(uri: string, mimeType?: string) {
+    async uploadMedia(
+        uri: string,
+        mimeType?: string,
+        options?: { signal?: AbortSignal; onProgress?: (progress: number, state: { processedBytes: number; totalBytes: number }) => void }
+    ) {
         try {
             console.log('Reading file info...');
-            const fileInfo = await getInfoAsync(uri);
-            if (!fileInfo.exists) {
+            const file = new ExpoFile(uri);
+            if (!file.exists) {
                 throw new Error('File does not exist');
             }
+            const fileInfo = file.info();
 
-            const totalBytes = fileInfo.size;
+            const totalBytes = fileInfo.size ?? 0;
+            if (!totalBytes) {
+                throw new Error('Unable to determine file size for upload');
+            }
             // Determine media type
             const isVideo = mimeType ? mimeType.startsWith('video/') : (uri.endsWith('.mp4') || uri.endsWith('.mov'));
             const mediaType = mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
@@ -74,41 +83,98 @@ export class TwitterService {
                 headers: {
                     ...(initHeaders as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                },
+                signal: options?.signal,
             });
 
             const mediaId = initResponse.data.media_id_string;
             console.log('Media ID:', mediaId);
 
-            // APPEND
-            // Read file as base64.
-            const fileContent = await readAsStringAsync(uri, { encoding: 'base64' });
-            
+            // APPEND - chunked base64 to avoid huge memory usage and keep RN compatibility
             const appendUrl = 'https://upload.twitter.com/1.1/media/upload.json';
-            const appendData = {
-                command: 'APPEND',
-                media_id: mediaId,
-                segment_index: 0,
-                media_data: fileContent 
-            };
-            
-            const appendReq = {
-                url: appendUrl,
-                method: 'POST',
-                data: appendData
-            };
-            
-            const appendHeaders = this.getAuthHeader(appendReq);
-            
-            await axios.post(appendUrl, new URLSearchParams(appendData as any), {
-                headers: {
-                    ...(appendHeaders as unknown as AxiosRequestHeaders),
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                maxBodyLength: Infinity,
-                maxContentLength: Infinity
-            });
-            
+            const chunkSize = isVideo && totalBytes > 50 * 1024 * 1024
+                ? 5 * 1024 * 1024
+                : 2 * 1024 * 1024;
+            const maxConcurrentAppends = isVideo && totalBytes > 50 * 1024 * 1024 ? 4 : 2;
+            const handle = file.open();
+
+            try {
+                let offset = 0;
+                let segmentIndex = 0;
+                let processedBytes = 0;
+                options?.onProgress?.(0, { processedBytes: 0, totalBytes });
+
+                const inFlight: Promise<void>[] = [];
+
+                const queueNextChunk = () => {
+                    while (offset < totalBytes && inFlight.length < maxConcurrentAppends) {
+                        const bytesToRead = Math.min(chunkSize, totalBytes - offset);
+                        const chunkOffset = offset;
+                        const chunkSegmentIndex = segmentIndex;
+
+                        offset += bytesToRead;
+                        segmentIndex += 1;
+
+                        const promise = (async () => {
+                            handle.offset = chunkOffset;
+                            const chunkBytes = handle.readBytes(bytesToRead);
+                            const chunkBase64 = Buffer.from(chunkBytes).toString('base64');
+
+                            const appendData = {
+                                command: 'APPEND',
+                                media_id: mediaId,
+                                segment_index: chunkSegmentIndex,
+                                media_data: chunkBase64,
+                            } as any;
+
+                            const appendReq = {
+                                url: appendUrl,
+                                method: 'POST',
+                                data: appendData,
+                            };
+
+                            const appendHeaders = this.getAuthHeader(appendReq);
+
+                            await axios.post(appendUrl, new URLSearchParams(appendData), {
+                                headers: {
+                                    ...(appendHeaders as unknown as AxiosRequestHeaders),
+                                    'Content-Type': 'application/x-www-form-urlencoded'
+                                },
+                                maxBodyLength: Infinity,
+                                maxContentLength: Infinity,
+                                signal: options?.signal,
+                            });
+
+                            processedBytes += bytesToRead;
+                            options?.onProgress?.(
+                                Math.min(processedBytes / totalBytes, 0.999),
+                                { processedBytes, totalBytes }
+                            );
+                        })();
+
+                        promise.finally(() => {
+                            const idx = inFlight.indexOf(promise);
+                            if (idx !== -1) inFlight.splice(idx, 1);
+                        });
+
+                        inFlight.push(promise);
+                    }
+                };
+
+                queueNextChunk();
+
+                while (inFlight.length > 0) {
+                    await Promise.race(inFlight);
+                    queueNextChunk();
+                }
+            } finally {
+                try {
+                    handle.close();
+                } catch (closeError) {
+                    console.warn('Failed to close file handle', closeError);
+                }
+            }
+
             console.log('Append complete');
 
             // FINALIZE
@@ -130,14 +196,17 @@ export class TwitterService {
                 headers: {
                     ...(finalizeHeaders as unknown as AxiosRequestHeaders),
                     'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                },
+                signal: options?.signal,
             });
             
             console.log('Finalize complete', finalizeResponse.data);
 
             if (finalizeResponse.data.processing_info) {
-                await this.checkStatus(mediaId);
+                await this.checkStatus(mediaId, options?.signal);
             }
+
+            options?.onProgress?.(1, { processedBytes: totalBytes, totalBytes });
 
             return mediaId;
 
@@ -147,7 +216,7 @@ export class TwitterService {
         }
     }
 
-    async checkStatus(mediaId: string) {
+    async checkStatus(mediaId: string, signal?: AbortSignal) {
         let processingInfo = null;
         do {
             const statusUrl = `https://upload.twitter.com/1.1/media/upload.json?command=STATUS&media_id=${mediaId}`;
@@ -158,7 +227,10 @@ export class TwitterService {
             
             const headers = this.getAuthHeader(request);
             
-            const response = await axios.get(statusUrl, { headers: headers as unknown as AxiosRequestHeaders });
+            const response = await axios.get(statusUrl, {
+                headers: headers as unknown as AxiosRequestHeaders,
+                signal,
+            });
             processingInfo = response.data.processing_info;
             
             console.log('Processing status:', processingInfo.state);
