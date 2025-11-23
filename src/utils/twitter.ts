@@ -2,7 +2,7 @@ import OAuth from 'oauth-1.0a';
 import HmacSHA1 from 'crypto-js/hmac-sha1';
 import Base64 from 'crypto-js/enc-base64';
 import axios, { AxiosRequestHeaders } from 'axios';
-import * as FileSystem from 'expo-file-system';
+import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 export class TwitterService {
     private consumerKey: string;
@@ -34,44 +34,18 @@ export class TwitterService {
         return this.oauth.toHeader(this.oauth.authorize(request, token));
     }
 
-    async uploadMedia(uri: string) {
+    async uploadMedia(uri: string, mimeType?: string) {
         try {
             console.log('Reading file info...');
-            // Migrated from deprecated getInfoAsync to legacy import or simply suppression if needed,
-            // but the prompt suggests migrating to "File" and "Directory" classes.
-            // As of expo-file-system v18+, we should be able to use:
-            // const file = new File(uri); but 'File' is a standard web API name so might conflict or be unavailable.
-            // Let's try to import legacy to fix the error immediately as suggested.
-
-            // To properly fix this using the new API, we need to know the exact import.
-            // However, since I cannot easily verify the new API without docs, I will use the legacy import
-            // which is explicitly mentioned as a solution in the error message.
-            // Wait, I cannot import from 'expo-file-system/legacy' if I don't change the import.
-
-            // Let's try to find if `expo-file-system` exports `File` or similar.
-            // If I look at the source code, I'm just guessing.
-            // The error said: "Method getInfoAsync imported from 'expo-file-system' is deprecated."
-            // "You can migrate to the new filesystem API using 'File' and 'Directory' classes or import the legacy API from 'expo-file-system/legacy'."
-
-            // So:
-            // import { getInfoAsync } from 'expo-file-system/legacy';
-
-            // But since I'm using `import * as FileSystem`, I should change how I import it.
-
-            // For now, I will assume the legacy import works to solve the deprecation error.
-
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const { getInfoAsync } = require('expo-file-system/legacy');
-
             const fileInfo = await getInfoAsync(uri);
             if (!fileInfo.exists) {
                 throw new Error('File does not exist');
             }
 
             const totalBytes = fileInfo.size;
-            // Determine media type (very basic)
-            const isVideo = uri.endsWith('.mp4') || uri.endsWith('.mov');
-            const mediaType = isVideo ? 'video/mp4' : 'image/jpeg'; // fallback/default
+            // Determine media type
+            const isVideo = mimeType ? mimeType.startsWith('video/') : (uri.endsWith('.mp4') || uri.endsWith('.mov'));
+            const mediaType = mimeType || (isVideo ? 'video/mp4' : 'image/jpeg');
 
             console.log(`Starting upload for ${mediaType}, size: ${totalBytes}`);
 
@@ -108,7 +82,7 @@ export class TwitterService {
 
             // APPEND
             // Read file as base64.
-            const fileContent = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+            const fileContent = await readAsStringAsync(uri, { encoding: 'base64' });
             
             const appendUrl = 'https://upload.twitter.com/1.1/media/upload.json';
             const appendData = {

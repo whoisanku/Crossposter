@@ -21,7 +21,7 @@ export default function ComposeScreen({ navigation }: Props) {
 
     const pickMedia = async (type: 'image' | 'video') => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: type === 'video' ? ImagePicker.MediaTypeOptions.Videos : ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: [type === 'video' ? 'videos' : 'images'],
             allowsEditing: true,
             quality: 1,
         });
@@ -61,7 +61,8 @@ export default function ComposeScreen({ navigation }: Props) {
 
             const mediaIds: string[] = [];
             if (media) {
-                const mediaId = await twitter.uploadMedia(media.uri);
+                const inferredMime = media.mimeType || (media.type === 'video' ? 'video/mp4' : 'image/jpeg');
+                const mediaId = await twitter.uploadMedia(media.uri, inferredMime);
                 mediaIds.push(mediaId);
             }
 
@@ -146,12 +147,6 @@ export default function ComposeScreen({ navigation }: Props) {
                         <Ionicons name="videocam-outline" size={24} color="#1d9bf0" />
                     </TouchableOpacity>
                     {/* Add more mock buttons for complete Twitter look */}
-                     <TouchableOpacity className="mr-6">
-                        <Ionicons name="list-outline" size={24} color="#1d9bf0" />
-                    </TouchableOpacity>
-                     <TouchableOpacity className="mr-6">
-                        <Ionicons name="location-outline" size={24} color="#1d9bf0" />
-                    </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
