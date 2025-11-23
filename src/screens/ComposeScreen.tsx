@@ -104,14 +104,18 @@ const selectVideoProfile = (asset: ImagePicker.ImagePickerAsset) => {
     const isSquare = width === height && width > 0;
     const isLandscape = width >= height;
 
+    // Optimized for "Twitter-like" fast uploads
+    // 720p is the sweet spot for mobile uploads (quality/speed)
+    // Bitrate ~2.0-2.5 Mbps is sufficient for H.264 720p
+
     if (isSquare) {
-        return { maxSide: 720, bitrate: 5_000_000 }; // 720x720
+        return { maxSide: 720, bitrate: 2_000_000 }; // 720x720, 2Mbps
     }
 
     // 1280x720 landscape, 720x1280 portrait
     return {
-        maxSide: isLandscape ? 1280 : 1280,
-        bitrate: isLandscape ? 5_500_000 : 5_000_000,
+        maxSide: 1280,
+        bitrate: 2_500_000, // 2.5 Mbps
     };
 };
 
@@ -128,8 +132,8 @@ const compressVideoForUpload = async (asset: ImagePicker.ImagePickerAsset): Prom
     const profile = selectVideoProfile(asset);
     const passes = [
         { maxSide: profile.maxSide, bitrate: profile.bitrate },
-        // fallback: tighter bitrate and slightly smaller frame for oversized clips
-        { maxSide: Math.min(profile.maxSide, 960), bitrate: Math.max(3_000_000, Math.floor(profile.bitrate * 0.65)) },
+        // fallback: tighter bitrate
+        { maxSide: profile.maxSide, bitrate: Math.max(1_500_000, Math.floor(profile.bitrate * 0.7)) },
     ];
 
     let workingUri = asset.uri;
