@@ -16,6 +16,8 @@ export default function SettingsScreen({ navigation }: Props) {
     const [apiSecret, setApiSecret] = useState('');
     const [accessToken, setAccessToken] = useState('');
     const [accessSecret, setAccessSecret] = useState('');
+    const [blueskyHandle, setBlueskyHandle] = useState('');
+    const [blueskyPassword, setBlueskyPassword] = useState('');
 
     useEffect(() => {
         loadCredentials();
@@ -23,7 +25,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
     const loadCredentials = async () => {
         try {
-            const keys = ['apiKey', 'apiSecret', 'accessToken', 'accessSecret'];
+            const keys = ['apiKey', 'apiSecret', 'accessToken', 'accessSecret', 'blueskyHandle', 'blueskyPassword'];
             const values = await AsyncStorage.multiGet(keys);
             
             values.forEach(item => {
@@ -31,6 +33,8 @@ export default function SettingsScreen({ navigation }: Props) {
                 if (item[0] === 'apiSecret') setApiSecret(item[1] || '');
                 if (item[0] === 'accessToken') setAccessToken(item[1] || '');
                 if (item[0] === 'accessSecret') setAccessSecret(item[1] || '');
+                if (item[0] === 'blueskyHandle') setBlueskyHandle(item[1] || '');
+                if (item[0] === 'blueskyPassword') setBlueskyPassword(item[1] || '');
             });
         } catch (e) {
             console.error(e);
@@ -43,7 +47,9 @@ export default function SettingsScreen({ navigation }: Props) {
                 ['apiKey', apiKey],
                 ['apiSecret', apiSecret],
                 ['accessToken', accessToken],
-                ['accessSecret', accessSecret]
+                ['accessSecret', accessSecret],
+                ['blueskyHandle', blueskyHandle],
+                ['blueskyPassword', blueskyPassword]
             ];
             await AsyncStorage.multiSet(data);
             Alert.alert('Success', 'Credentials saved successfully');
@@ -99,6 +105,33 @@ export default function SettingsScreen({ navigation }: Props) {
                         value={accessSecret} 
                         onChangeText={setAccessSecret} 
                         placeholder="Enter Access Secret"
+                        secureTextEntry
+                        placeholderTextColor="#666"
+                    />
+                </View>
+
+                <View className="h-[1px] bg-[#2f3336] my-5" />
+                <Text className="text-xl font-bold text-white mb-5">Bluesky Settings</Text>
+
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">Bluesky Handle</Text>
+                    <TextInput
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
+                        value={blueskyHandle}
+                        onChangeText={setBlueskyHandle}
+                        placeholder="e.g. user.bsky.social"
+                        placeholderTextColor="#666"
+                        autoCapitalize="none"
+                    />
+                </View>
+
+                <View className="mb-5">
+                    <Text className="text-[#8899a6] mb-2 text-sm">Bluesky App Password</Text>
+                    <TextInput
+                        className="bg-[#192734] text-white p-4 rounded-lg text-base border border-[#253341]"
+                        value={blueskyPassword}
+                        onChangeText={setBlueskyPassword}
+                        placeholder="Enter App Password"
                         secureTextEntry
                         placeholderTextColor="#666"
                     />
